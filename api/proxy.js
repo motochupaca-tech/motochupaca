@@ -1,13 +1,17 @@
 export default async function handler(req, res) {
-  // Obtenemos la URL del M3U8 o del fragmento .ts que queremos reproducir
   const { url } = req.query;
+  const origin = req.headers.origin || '';
+
+  // 🔴 EL CANDADO: Si la petición viene de otra web que no sea Voley Libre o tu propio Vercel, la bloqueamos.
+  if (origin && !origin.includes('voleylibre.com') && !origin.includes('motochupaca.vercel.app')) {
+    return res.status(403).json({ error: 'Robo de señal detectado. Acceso denegado.' });
+  }
 
   if (!url) {
     return res.status(400).json({ error: 'Falta el parámetro URL' });
   }
 
   try {
-    // El proxy hace la petición al servidor de JWPlayer por ti
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -15,17 +19,15 @@ export default async function handler(req, res) {
       }
     });
 
-    // 🔴 LA MAGIA: Le inyectamos las cabeceras CORS para que tu página no sea bloqueada
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // Le damos acceso CORS estrictamente al dominio que pasó la prueba (tu web)
+    res.setHeader('Access-Control-Allow-Origin', origin || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', '*');
 
-    // Manejar peticiones de pre-vuelo (OPTIONS)
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
     }
 
-    // Devolvemos el contenido exacto (el texto del m3u8 o el video de los .ts)
     const buffer = await response.arrayBuffer();
     res.setHeader('Content-Type', response.headers.get('content-type') || 'application/vnd.apple.mpegurl');
     res.status(response.status).send(Buffer.from(buffer));
