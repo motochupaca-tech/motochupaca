@@ -4,50 +4,110 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer" />
-  <title>Reproductor Definitivo</title>
-  <style>
-    body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; }
-    video { width: 100%; height: 100%; outline: none; }
-  </style>
+  <title>VXA Player Ultimate</title>
+
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clappr-chromecast-plugin@latest/dist/clappr-chromecast-plugin.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+  <style>
+    /* Estética Premium */
+    body, html {
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      background-color: #000; overflow: hidden; font-family: sans-serif;
+    }
+    #player-container { width: 100%; height: 100%; }
+
+    /* Estilo botón Chromecast grande */
+    [data-player] .media-control[data-media-control] button.chromecast-button {
+        position: relative !important;
+        top: auto !important; left: auto !important; right: auto !important; bottom: auto !important;
+        margin-left: 10px !important;
+        margin-right: 10px !important;
+        transform: scale(1.1) !important;
+        background: transparent !important;
+    }
+    [data-player] .media-control-background[data-background] { pointer-events: none !important; }
+
+    @media (max-width: 768px) {
+        [data-player] .media-control[data-media-control] button.chromecast-button {
+            transform: scale(1.3) !important;
+            margin-left: 15px !important;
+            margin-right: 15px !important;
+        }
+    }
+  </style>
 </head>
 <body>
 
-  <video id="main-video" controls playsinline></video>
+  <div id="player-container"></div>
 
   <script>
-    const video = document.getElementById('main-video');
-    const streamUrl = "https://livecdn.euw1-0005.jwplive.com/live/sites/fM9jRrkn/media/bCCnXByn/live.isml/.m3u8";
+    // 1. Obtener URL del stream desde el iframe (?url=...)
+    const urlParams = new URLSearchParams(window.location.search);
+    const streamUrl = urlParams.get('url');
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        fetchSetup: function(context, initParams) {
-          
-          // Proxy Parcial usando tu propio servidor interno
-          if (context.url.includes('.m3u8') || context.url.includes('.m3u') || context.url.includes('.isml')) {
-            context.url = '/api/proxy?url=' + encodeURIComponent(context.url);
-          }
+    if (!streamUrl) {
+      document.getElementById('player-container').innerHTML = '<div style="color:white; display:flex; justify-content:center; align-items:center; height:100%; font-size:1.5em; text-align:center; padding:20px;">Falta la URL del video.<br>Añade ?url= al final de tu enlace.</div>';
+    } else {
+      // 2. Determinar si es Smart TV (HLS nativo)
+      const isSmartTV = /Web0S|WebOS|NetCast|SmartTV|Tizen|VIDAA|Roku|Viera|PlayStation|Xbox|AppleTV/i.test(navigator.userAgent);
 
-          initParams = initParams || {};
-          initParams.headers = new Headers(initParams.headers || {});
-          initParams.headers.set("Accept", "*/*");
-          
-          return new Request(context.url, initParams);
-        }
-      });
+      // 3. Configuración del Reproductor Clappr
+      const playerConfig = {
+          source: streamUrl,
+          parentId: "#player-container",
+          width: '100%',
+          height: '100%',
+          autoPlay: true,
+          mute: false,
+          playback: { playInline: true, recycleVideo: true, crossOrigin: 'anonymous' },
 
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
+          // INYECCIÓN DEL PROXY PARCIAL EN CLAPPR
+          hlsjsConfig: {
+              enableWorker: !isSmartTV,
+              liveSyncDurationCount: 3,
+              liveMaxLatencyDurationCount: 10,
+              // Magia de Vercel (Ruta relativa directa al proxy en tu mismo servidor)
+              fetchSetup: function(context, initParams) {
+                if (context.url.includes('.m3u8') || context.url.includes('.m3u') || context.url.includes('.isml')) {
+                  context.url = '/api/proxy?url=' + encodeURIComponent(context.url);
+                }
+                initParams = initParams || {};
+                initParams.headers = new Headers(initParams.headers || {});
+                initParams.headers.set("Accept", "*/*");
+                return new Request(context.url, initParams);
+              }
+          },
+          plugins: []
+      };
 
-      hls.on(Hls.Events.MANIFEST_PARSED, function() {
-        video.play().catch(e => console.log("Requiere clic del usuario", e));
-      });
+      // 4. Inyectar Chromecast Plugin
+      if (!isSmartTV && typeof ChromecastPlugin !== 'undefined') {
+          playerConfig.plugins.push(ChromecastPlugin);
+          playerConfig.chromecast = {
+              appId: '9DFB77C0',
+              contentType: 'application/x-mpegURL',
+              media: { title: 'Señal en Vivo', subtitle: 'Transmisión Oficial' }
+          };
+      }
 
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = '/api/proxy?url=' + encodeURIComponent(streamUrl);
-      video.addEventListener('loadedmetadata', function() {
-        video.play();
-      });
+      // 5. Inicializar el reproductor
+      const playerInstance = new Clappr.Player(playerConfig);
+
+      // 6. Eliminar el Click-to-Pause
+      playerInstance.on(Clappr.Events.PLAYER_READY, killClickToPause);
+      playerInstance.on(Clappr.Events.CONTAINER_READY, killClickToPause);
+      playerInstance.on(Clappr.Events.PLAYER_PLAY, killClickToPause);
+
+      function killClickToPause() {
+          try {
+              if (playerInstance && playerInstance.core && playerInstance.core.activeContainer) {
+                  var ctp = playerInstance.core.activeContainer.getPlugin('click_to_pause');
+                  if (ctp) { ctp.disable(); ctp.stopListening(); }
+              }
+          } catch(e) {}
+      }
     }
   </script>
 </body>
