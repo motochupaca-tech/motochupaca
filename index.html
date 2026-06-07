@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer" />
-  <title>VXA Player Ultimate</title>
+  <title>APOYA AL YAPE</title>
 
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clappr-chromecast-plugin@latest/dist/clappr-chromecast-plugin.min.js"></script>
@@ -43,6 +43,12 @@
   <div id="player-container"></div>
 
   <script>
+    // BLOQUEO ANTI-VISITA DIRECTA: Destruye el reproductor si intentan abrir el enlace por fuera
+    if (window.self === window.top) {
+      document.body.innerHTML = '<div style="background:#000;color:#ef4444;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;text-align:center;"><div><h1 style="font-size:3em;">⛔</h1><h2>ACCESO RESTRINGIDO</h2><p style="color:#fff;">Transmisión oficial exclusivamente en Voley Libre</p></div></div>';
+      throw new Error("Acceso directo bloqueado.");
+    }
+
     // 1. Obtener URL del stream desde el iframe (?url=...)
     const urlParams = new URLSearchParams(window.location.search);
     const streamUrl = urlParams.get('url');
