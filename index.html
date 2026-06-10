@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer" />
-  <title>APOYA AL YAPE</title>
+  <title>VXA Player Ultimate</title>
 
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clappr-chromecast-plugin@latest/dist/clappr-chromecast-plugin.min.js"></script>
@@ -43,12 +43,6 @@
   <div id="player-container"></div>
 
   <script>
-    // BLOQUEO ANTI-VISITA DIRECTA: Destruye el reproductor si intentan abrir el enlace por fuera
-    if (window.self === window.top) {
-      document.body.innerHTML = '<div style="background:#000;color:#ef4444;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;text-align:center;"><div><h1 style="font-size:3em;">⛔</h1><h2>ACCESO RESTRINGIDO</h2><p style="color:#fff;">Anda para asha bobo</p></div></div>';
-      throw new Error("Acceso directo bloqueado.");
-    }
-
     // 1. Obtener URL del stream desde el iframe (?url=...)
     const urlParams = new URLSearchParams(window.location.search);
     const streamUrl = urlParams.get('url');
@@ -74,7 +68,7 @@
               enableWorker: !isSmartTV,
               liveSyncDurationCount: 3,
               liveMaxLatencyDurationCount: 10,
-              // Magia de Vercel (Ruta relativa directa al proxy en tu mismo servidor)
+              // Magia de Vercel
               fetchSetup: function(context, initParams) {
                 if (context.url.includes('.m3u8') || context.url.includes('.m3u') || context.url.includes('.isml')) {
                   context.url = '/api/proxy?url=' + encodeURIComponent(context.url);
