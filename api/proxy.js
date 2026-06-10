@@ -1,10 +1,5 @@
 export default async function handler(req, res) {
   const { url } = req.query;
-  const origin = req.headers.origin || '';
-
-  if (origin && !origin.includes('voleylibre.com') && !origin.includes('motochupaca.vercel.app')) {
-    return res.status(403).json({ error: 'Robo de señal detectado. Acceso denegado.' });
-  }
 
   if (!url) {
     return res.status(400).json({ error: 'Falta el parámetro URL' });
@@ -18,7 +13,7 @@ export default async function handler(req, res) {
       }
     });
 
-    res.setHeader('Access-Control-Allow-Origin', origin || '*');
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', '*');
 
