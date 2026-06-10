@@ -11,6 +11,14 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Falta el parámetro URL' });
   }
 
+  // 🔴 DOBLE CANDADO GEOGRÁFICO: Bloqueo a nivel de servidor Vercel (Europa y USA)
+  const country = req.headers['x-vercel-ip-country'];
+  const blockedCountries = ['CH', 'FR', 'DE', 'GB', 'NL', 'US', 'IT', 'AT'];
+
+  if (country && blockedCountries.includes(country)) {
+    return res.status(451).json({ error: 'Unavailable For Legal Reasons' });
+  }
+
   try {
     const response = await fetch(url, {
       headers: {
