@@ -2,21 +2,12 @@ export default async function handler(req, res) {
   const { url } = req.query;
   const origin = req.headers.origin || '';
 
-  // 🔴 EL CANDADO: Si la petición viene de otra web que no sea Voley Libre o tu propio Vercel, la bloqueamos.
   if (origin && !origin.includes('voleylibre.com') && !origin.includes('motochupaca.vercel.app')) {
     return res.status(403).json({ error: 'Robo de señal detectado. Acceso denegado.' });
   }
 
   if (!url) {
     return res.status(400).json({ error: 'Falta el parámetro URL' });
-  }
-
-  // 🔴 DOBLE CANDADO GEOGRÁFICO: Bloqueo a nivel de servidor Vercel (Europa y USA)
-  const country = req.headers['x-vercel-ip-country'];
-  const blockedCountries = ['CH', 'FR', 'DE', 'GB', 'NL', 'US', 'IT', 'AT'];
-
-  if (country && blockedCountries.includes(country)) {
-    return res.status(451).json({ error: 'Unavailable For Legal Reasons' });
   }
 
   try {
@@ -27,7 +18,6 @@ export default async function handler(req, res) {
       }
     });
 
-    // Le damos acceso CORS estrictamente al dominio que pasó la prueba (tu web)
     res.setHeader('Access-Control-Allow-Origin', origin || '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', '*');
