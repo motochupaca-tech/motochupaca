@@ -63,7 +63,7 @@
           mute: false,
           playback: { playInline: true, recycleVideo: true, crossOrigin: 'anonymous' },
 
-          // INYECCIÓN DEL PROXY ROTATIVO ALLORIGINS
+          // INYECCIÓN DEL TÚNEL CLOUDFLARE A TU RED LOCAL
           hlsjsConfig: {
               enableWorker: !isSmartTV,
               liveSyncDurationCount: 3,
@@ -71,8 +71,12 @@
               
               fetchSetup: function(context, initParams) {
                 if (context.url.includes('.m3u8') || context.url.includes('.m3u') || context.url.includes('.isml')) {
-                  // Reemplazamos tu Vercel por la red AllOrigins para saltar el bloqueo de IP
-                  context.url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(context.url);
+                  
+                  // 👇 AQUÍ PONES TU ENLACE DE CLOUDFLARE 👇
+                  // Ejemplo: const cloudflareTunnelUrl = 'https://palabras-al-azar.trycloudflare.com';
+                  const cloudflareTunnelUrl = 'https://TU-ENLACE-GENERADO.trycloudflare.com';
+                  
+                  context.url = cloudflareTunnelUrl + '/proxy?url=' + encodeURIComponent(context.url);
                 }
                 initParams = initParams || {};
                 initParams.headers = new Headers(initParams.headers || {});
