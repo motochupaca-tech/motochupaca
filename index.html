@@ -63,15 +63,16 @@
           mute: false,
           playback: { playInline: true, recycleVideo: true, crossOrigin: 'anonymous' },
 
-          // INYECCIÓN DEL PROXY PARCIAL EN CLAPPR
+          // INYECCIÓN DEL PROXY ROTATIVO ALLORIGINS
           hlsjsConfig: {
               enableWorker: !isSmartTV,
               liveSyncDurationCount: 3,
               liveMaxLatencyDurationCount: 10,
-              // Magia de Vercel
+              
               fetchSetup: function(context, initParams) {
                 if (context.url.includes('.m3u8') || context.url.includes('.m3u') || context.url.includes('.isml')) {
-                  context.url = '/api/proxy?url=' + encodeURIComponent(context.url);
+                  // Reemplazamos tu Vercel por la red AllOrigins para saltar el bloqueo de IP
+                  context.url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(context.url);
                 }
                 initParams = initParams || {};
                 initParams.headers = new Headers(initParams.headers || {});
