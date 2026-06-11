@@ -51,7 +51,7 @@
                   enableWorker: !isSmartTV,
                   xhrSetup: function(xhr, url) {
                       const cleanUrl = url.split('?')[0];
-                      // LA CORRECCIÓN: Estrictamente M3U8, dejamos pasar libres los .aac y .ts
+                      // LA REGLA DE ORO: Solo pasamos por tu PC si termina literalmente en .m3u8 o .m3u
                       if (!url.includes('trycloudflare.com') && (cleanUrl.endsWith('.m3u8') || cleanUrl.endsWith('.m3u'))) {
                           url = cloudflareTunnelUrl + '/proxy?url=' + encodeURIComponent(url);
                       }
