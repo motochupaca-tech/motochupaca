@@ -43,17 +43,16 @@
   <div id="player-container"></div>
 
   <script>
-    // 1. Obtener URL del stream desde el iframe (?url=...)
     const urlParams = new URLSearchParams(window.location.search);
     const streamUrl = urlParams.get('url');
 
     if (!streamUrl) {
       document.getElementById('player-container').innerHTML = '<div style="color:white; display:flex; justify-content:center; align-items:center; height:100%; font-size:1.5em; text-align:center; padding:20px;">Falta la URL del video.<br>Añade ?url= al final de tu enlace.</div>';
     } else {
-      // 2. Determinar si es Smart TV (HLS nativo)
       const isSmartTV = /Web0S|WebOS|NetCast|SmartTV|Tizen|VIDAA|Roku|Viera|PlayStation|Xbox|AppleTV/i.test(navigator.userAgent);
+      
+      const cloudflareTunnelUrl = 'https://ladies-everyone-guest-ambient.trycloudflare.com';
 
-      // 3. Configuración del Reproductor Clappr
       const playerConfig = {
           source: streamUrl,
           parentId: "#player-container",
@@ -61,33 +60,31 @@
           height: '100%',
           autoPlay: true,
           mute: false,
-          playback: { playInline: true, recycleVideo: true, crossOrigin: 'anonymous' },
-
-          // INYECCIÓN DEL TÚNEL CLOUDFLARE A TU RED LOCAL
-          hlsjsConfig: {
-              enableWorker: !isSmartTV,
-              liveSyncDurationCount: 3,
-              liveMaxLatencyDurationCount: 10,
+          playback: { 
+              playInline: true, 
+              recycleVideo: true, 
+              crossOrigin: 'anonymous',
               
-              fetchSetup: function(context, initParams) {
-                if (context.url.includes('.m3u8') || context.url.includes('.m3u') || context.url.includes('.isml')) {
-                  
-                  // 👇 AQUÍ PONES TU ENLACE DE CLOUDFLARE 👇
-                  // Ejemplo: const cloudflareTunnelUrl = 'https://palabras-al-azar.trycloudflare.com';
-                  const cloudflareTunnelUrl = 'https://ladies-everyone-guest-ambient.trycloudflare.com';
-                  
-                  context.url = cloudflareTunnelUrl + '/proxy?url=' + encodeURIComponent(context.url);
-                }
-                initParams = initParams || {};
-                initParams.headers = new Headers(initParams.headers || {});
-                initParams.headers.set("Accept", "*/*");
-                return new Request(context.url, initParams);
+              // AHORA SÍ: Esta configuración está adentro de 'playback' para que Clappr obedezca
+              hlsjsConfig: {
+                  enableWorker: !isSmartTV,
+                  liveSyncDurationCount: 3,
+                  liveMaxLatencyDurationCount: 10,
+                  fetchSetup: function(context, initParams) {
+                      // Interceptamos solo los archivos de texto (mapas)
+                      if (context.url.includes('.m3u8') || context.url.includes('.m3u') || context.url.includes('.isml')) {
+                          context.url = cloudflareTunnelUrl + '/proxy?url=' + encodeURIComponent(context.url);
+                      }
+                      initParams = initParams || {};
+                      initParams.headers = new Headers(initParams.headers || {});
+                      initParams.headers.set("Accept", "*/*");
+                      return new Request(context.url, initParams);
+                  }
               }
           },
           plugins: []
       };
 
-      // 4. Inyectar Chromecast Plugin
       if (!isSmartTV && typeof ChromecastPlugin !== 'undefined') {
           playerConfig.plugins.push(ChromecastPlugin);
           playerConfig.chromecast = {
@@ -97,10 +94,8 @@
           };
       }
 
-      // 5. Inicializar el reproductor
       const playerInstance = new Clappr.Player(playerConfig);
 
-      // 6. Eliminar el Click-to-Pause
       playerInstance.on(Clappr.Events.PLAYER_READY, killClickToPause);
       playerInstance.on(Clappr.Events.CONTAINER_READY, killClickToPause);
       playerInstance.on(Clappr.Events.PLAYER_PLAY, killClickToPause);
