@@ -8,8 +8,10 @@
 
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clappr-chromecast-plugin@latest/dist/clappr-chromecast-plugin.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
   <style>
+    /* Estética Premium */
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; font-family: sans-serif; }
     #player-container { width: 100%; height: 100%; }
     [data-player] .media-control[data-media-control] button.chromecast-button { position: relative !important; top: auto !important; left: auto !important; right: auto !important; bottom: auto !important; margin-left: 10px !important; margin-right: 10px !important; transform: scale(1.1) !important; background: transparent !important; }
@@ -30,9 +32,10 @@
     } else {
       const isSmartTV = /Web0S|WebOS|NetCast|SmartTV|Tizen|VIDAA|Roku|Viera|PlayStation|Xbox|AppleTV/i.test(navigator.userAgent);
       
-      const cloudflareTunnelUrl = 'https://ladies-everyone-guest-ambient.trycloudflare.com';
+      // 👇 AQUÍ PONES TU NUEVO ENLACE DE CLOUDFLARE 👇
+      const cloudflareTunnelUrl = 'https://reliance-diego-loading-edit.trycloudflare.com/';
       
-      // Envolvemos la URL principal desde el inicio para forzar el paso por el túnel
+      // Forzamos la URL principal a pasar por tu proxy de Cañete
       const proxiedStreamUrl = cloudflareTunnelUrl + '/proxy?url=' + encodeURIComponent(streamUrl);
 
       const playerConfig = {
@@ -47,10 +50,10 @@
               recycleVideo: true, 
               crossOrigin: 'anonymous',
               
-              // Usamos xhrSetup para interceptar las calidades internas del video
               hlsjsConfig: {
                   enableWorker: !isSmartTV,
                   xhrSetup: function(xhr, url) {
+                      // Solo interceptamos los archivos .m3u8 si no vienen ya del túnel
                       if (!url.includes('trycloudflare.com') && (url.includes('.m3u8') || url.includes('.m3u') || url.includes('.isml'))) {
                           url = cloudflareTunnelUrl + '/proxy?url=' + encodeURIComponent(url);
                       }
