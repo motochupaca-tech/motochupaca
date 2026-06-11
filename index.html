@@ -33,7 +33,7 @@
       const isSmartTV = /Web0S|WebOS|NetCast|SmartTV|Tizen|VIDAA|Roku|Viera|PlayStation|Xbox|AppleTV/i.test(navigator.userAgent);
       
       // 👇 AQUÍ PONES TU NUEVO ENLACE DE CLOUDFLARE 👇
-      const cloudflareTunnelUrl = 'https://reliance-diego-loading-edit.trycloudflare.com/';
+      const cloudflareTunnelUrl = 'https://reliance-diego-loading-edit.trycloudflare.com';
       
       // Forzamos la URL principal a pasar por tu proxy de Cañete
       const proxiedStreamUrl = cloudflareTunnelUrl + '/proxy?url=' + encodeURIComponent(streamUrl);
