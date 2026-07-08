@@ -2,53 +2,61 @@ export default async function handler(req, res) {
   const { url } = req.query;
 
   if (!url) {
-    return res.status(400).json({ error: 'Falta la URL' });
+    return res.status(400).json({ error: 'Falta el parámetro URL' });
   }
 
   try {
-    // 1. Nos disfrazamos para saltar el Error 403
+    // 1. Falsificamos la identidad para saltar el bloqueo de CloudFront
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://tv.volleyballworld.com/', // JWPlayer creerá que somos la página oficial
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        'Referer': 'https://tv.volleyballworld.com/',
         'Origin': 'https://tv.volleyballworld.com'
       }
     });
 
     if (!response.ok) {
-       return res.status(response.status).send(`Error de JWPlayer: ${response.status}`);
+       return res.status(response.status).send(`Error de origen: ${response.status}`);
     }
 
-    const text = await response.text();
+    // 2. Si lo que nos piden es un fragmento de VIDEO PESADO (.ts, .m4s) o AUDIO
+    // Lo procesamos como datos binarios (Buffer)
+    if (url.includes('.ts') || url.includes('.m4s') || url.includes('.mp4') || url.includes('.aac')) {
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', response.headers.get('content-type') || 'video/MP2T');
+      res.setHeader('Cache-Control', 'public, max-age=3600'); // Ayuda a que Vercel no sufra tanto
+      return res.status(200).send(buffer);
+    }
 
-    // 2. Lógica del "Lector de Texto" (Manifest Rewriting)
+    // 3. Si lo que nos piden es el TEXTO (.m3u8)
+    const text = await response.text();
     const baseUrl = new URL(url);
     const basePath = baseUrl.origin + baseUrl.pathname.substring(0, baseUrl.pathname.lastIndexOf('/') + 1);
 
+    // Reescribimos TODAS las rutas (texto y video) para que pasen obligatoriamente por este Proxy
     const rewrittenM3u8 = text.split('\n').map(line => {
-      if (line && !line.startsWith('#') && !line.startsWith('http')) {
-        // Convertimos rutas relativas a absolutas
-        let absoluteUrl = line.startsWith('/') ? baseUrl.origin + line : basePath + line;
-        
-        // LA MAGIA: Si la línea apunta a otra lista de texto (.m3u8), la volvemos a pasar por Vercel
-        if (absoluteUrl.includes('.m3u8')) {
-          return `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`;
-        } 
-        // Si la línea apunta a video pesado (.ts, .m4s, .mp4), se va DIRECTO a JWPlayer
-        else {
-          return absoluteUrl;
+      if (line && !line.startsWith('#')) {
+        // Convertir relativas a absolutas
+        let absoluteUrl = line;
+        if (!line.startsWith('http')) {
+           absoluteUrl = line.startsWith('/') ? baseUrl.origin + line : basePath + line;
         }
+        // Envolvemos la ruta en nuestro proxy
+        return `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`;
       }
       return line;
     }).join('\n');
 
-    // 3. Devolvemos el texto limpio y con permisos abiertos a tu página
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
     res.status(200).send(rewrittenM3u8);
 
   } catch (error) {
-    res.status(500).json({ error: 'Error interno en el lector de Vercel' });
+    console.error(error);
+    res.status(500).json({ error: 'Error interno en el proxy' });
   }
 }
