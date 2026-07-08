@@ -3,20 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="referrer" content="no-referrer" />
   <title>VXA Player Ultimate</title>
 
   <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clappr@latest/dist/clappr.min.js"></script>
-  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/clappr-chromecast-plugin@latest/dist/clappr-chromecast-plugin.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
   <style>
     body, html { margin: 0; padding: 0; width: 100%; height: 100%; background-color: #000; overflow: hidden; font-family: sans-serif; }
     #player-container { width: 100%; height: 100%; }
-    /* Ajustes visuales de Chromecast */
-    [data-player] .media-control[data-media-control] button.chromecast-button { position: relative !important; top: auto !important; left: auto !important; right: auto !important; bottom: auto !important; margin-left: 10px !important; margin-right: 10px !important; transform: scale(1.1) !important; background: transparent !important; }
-    [data-player] .media-control-background[data-background] { pointer-events: none !important; }
-    @media (max-width: 768px) { [data-player] .media-control[data-media-control] button.chromecast-button { transform: scale(1.3) !important; margin-left: 15px !important; margin-right: 15px !important; } }
   </style>
 </head>
 <body>
@@ -28,59 +22,33 @@
     const streamUrl = urlParams.get('url');
 
     if (!streamUrl) {
-      document.getElementById('player-container').innerHTML = '<div style="color:white; display:flex; justify-content:center; align-items:center; height:100%; font-size:1.5em; text-align:center; padding:20px;">Falta la URL del video. Ejemplo: ?url=https://...</div>';
+      document.getElementById('player-container').innerHTML = '<div style="color:white; display:flex; justify-content:center; align-items:center; height:100%;">Falta la URL del video.</div>';
     } else {
-      const isSmartTV = /Web0S|WebOS|NetCast|SmartTV|Tizen|VIDAA|Roku|Viera|PlayStation|Xbox|AppleTV/i.test(navigator.userAgent);
       
-      const playerConfig = {
-          // Usamos la URL cruda directamente, sin proxy, porque JWPlayer lo permite
-          source: streamUrl,
+      // Apuntamos al proxy inteligente de tu propio Vercel
+      const proxiedStreamUrl = '/api/proxy?url=' + encodeURIComponent(streamUrl);
+
+      const playerInstance = new Clappr.Player({
+          source: proxiedStreamUrl,
           mimeType: "application/vnd.apple.mpegurl",
           parentId: "#player-container",
           width: '100%',
           height: '100%',
           autoPlay: true,
-          mute: false,
           playback: { 
-              playInline: true, 
-              recycleVideo: true, 
+              playInline: true,
               crossOrigin: 'anonymous',
               hlsjsConfig: {
-                  enableWorker: !isSmartTV,
-                  // Ajustes para que la transmisión en vivo no se caiga fácilmente
                   liveSyncDurationCount: 3,
                   liveMaxLatencyDurationCount: 10,
               }
-          },
-          plugins: []
-      };
-
-      if (!isSmartTV && typeof ChromecastPlugin !== 'undefined') {
-          playerConfig.plugins.push(ChromecastPlugin);
-          playerConfig.chromecast = {
-              appId: '9DFB77C0',
-              contentType: 'application/x-mpegURL',
-              media: { title: 'Señal en Vivo VXA', subtitle: 'Transmisión Oficial' }
-          };
-      }
-
-      const playerInstance = new Clappr.Player(playerConfig);
-
-      // Truco: Auto-recuperación si hay micro-cortes en el m3u8 (Demuxer Error)
-      playerInstance.core.getCurrentPlayback().on(window.Clappr.Events.PLAYBACK_ERROR, function(e) {
-          console.warn("Error detectado, intentando reconectar...", e);
-          setTimeout(() => {
-              playerInstance.play();
-          }, 2000);
+          }
       });
 
-      playerInstance.on(Clappr.Events.PLAYER_READY, function() {
-          try {
-              if (playerInstance.core && playerInstance.core.activeContainer) {
-                  var ctp = playerInstance.core.activeContainer.getPlugin('click_to_pause');
-                  if (ctp) { ctp.disable(); ctp.stopListening(); }
-              }
-          } catch(e) {}
+      // Auto-recuperación si el vivo se cae
+      playerInstance.core.getCurrentPlayback().on(window.Clappr.Events.PLAYBACK_ERROR, function(e) {
+          console.warn("Error de señal, reconectando...");
+          setTimeout(() => { playerInstance.play(); }, 2000);
       });
     }
   </script>
