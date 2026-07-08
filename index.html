@@ -24,9 +24,11 @@
       document.getElementById('player-container').innerHTML = '<div style="color:white; display:flex; justify-content:center; align-items:center; height:100%;">Falta la URL del video. Ejemplo: ?url=https://...</div>';
     } else {
       
-      // LA CORRECCIÓN CLAVE: Pasamos la URL cruda directo al reproductor. Cero proxies.
+      // Apuntamos al proxy inteligente de Vercel que ahora es un Lector de Texto
+      const proxiedStreamUrl = '/api/proxy?url=' + encodeURIComponent(streamUrl);
+
       const playerInstance = new Clappr.Player({
-          source: streamUrl,
+          source: proxiedStreamUrl,
           mimeType: "application/vnd.apple.mpegurl",
           parentId: "#player-container",
           width: '100%',
@@ -35,8 +37,18 @@
           mute: false,
           playback: { 
               playInline: true,
-              crossOrigin: 'anonymous' // Esto permite que el navegador acepte el video de JWPlayer
+              crossOrigin: 'anonymous', // Vital para evitar bloqueos del navegador en los videos directos
+              hlsjsConfig: {
+                  liveSyncDurationCount: 3,
+                  liveMaxLatencyDurationCount: 10
+              }
           }
+      });
+
+      // Auto-recuperación si el stream se traba
+      playerInstance.core.getCurrentPlayback().on(window.Clappr.Events.PLAYBACK_ERROR, function(e) {
+          console.warn("Se detectó un micro-corte. Reconectando...", e);
+          setTimeout(() => { playerInstance.play(); }, 2000);
       });
     }
   </script>
