@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. Falsificamos la identidad para saltar el bloqueo de CloudFront
+    // 1. Falsificación de cabeceras para engañar a CloudFront/JWPlayer
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
@@ -16,47 +16,58 @@ export default async function handler(req, res) {
     });
 
     if (!response.ok) {
-       return res.status(response.status).send(`Error de origen: ${response.status}`);
+       return res.status(response.status).send(`Error del servidor origen: ${response.status}`);
     }
 
-    // 2. Si lo que nos piden es un fragmento de VIDEO PESADO (.ts, .m4s) o AUDIO
-    // Lo procesamos como datos binarios (Buffer)
-    if (url.includes('.ts') || url.includes('.m4s') || url.includes('.mp4') || url.includes('.aac')) {
+    // 2. PROCESAMIENTO BINARIO (Para video pesado y audio)
+    // Extraemos el buffer directamente y lo pasamos al navegador
+    if (url.includes('.ts') || url.includes('.m4s') || url.includes('.mp4') || url.includes('.aac') || url.includes('.vtt')) {
       const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      
       res.setHeader('Access-Control-Allow-Origin', '*');
       res.setHeader('Content-Type', response.headers.get('content-type') || 'video/MP2T');
-      res.setHeader('Cache-Control', 'public, max-age=3600'); // Ayuda a que Vercel no sufra tanto
-      return res.status(200).send(buffer);
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      return res.status(200).send(Buffer.from(arrayBuffer));
     }
 
-    // 3. Si lo que nos piden es el TEXTO (.m3u8)
+    // 3. PROCESAMIENTO DE TEXTO (Para listas .m3u8)
     const text = await response.text();
     const baseUrl = new URL(url);
     const basePath = baseUrl.origin + baseUrl.pathname.substring(0, baseUrl.pathname.lastIndexOf('/') + 1);
 
-    // Reescribimos TODAS las rutas (texto y video) para que pasen obligatoriamente por este Proxy
-    const rewrittenM3u8 = text.split('\n').map(line => {
-      if (line && !line.startsWith('#')) {
-        // Convertir relativas a absolutas
-        let absoluteUrl = line;
-        if (!line.startsWith('http')) {
-           absoluteUrl = line.startsWith('/') ? baseUrl.origin + line : basePath + line;
-        }
-        // Envolvemos la ruta en nuestro proxy
-        return `/api/proxy?url=${encodeURIComponent(absoluteUrl)}`;
+    // Función constructora de URLs absolutas con proxy inyectado
+    const wrapUrl = (targetUrl) => {
+      let absUrl = targetUrl;
+      if (!targetUrl.startsWith('http')) {
+        absUrl = targetUrl.startsWith('/') ? baseUrl.origin + targetUrl : basePath + targetUrl;
       }
-      return line;
-    }).join('\n');
+      return `/api/proxy?url=${encodeURIComponent(absUrl)}`;
+    };
 
+    // Leemos línea por línea
+    let lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trim();
+      
+      // Si la línea es una URL suelta (fragmentos de video o sub-listas)
+      if (line && !line.startsWith('#')) {
+        lines[i] = wrapUrl(line);
+      } 
+      // LA CORRECCIÓN MAESTRA: Si la línea es una etiqueta que contiene una URI oculta
+      else if (line.startsWith('#EXT-X-MEDIA:') || line.startsWith('#EXT-X-STREAM-INF:') || line.startsWith('#EXT-X-I-FRAME-STREAM-INF:')) {
+        lines[i] = line.replace(/URI="([^"]+)"/g, (match, hiddenUrl) => {
+          return `URI="${wrapUrl(hiddenUrl)}"`;
+        });
+      }
+    }
+
+    // 4. Entregamos el manifiesto completamente alterado a tu reproductor
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Content-Type', 'application/vnd.apple.mpegurl');
-    res.status(200).send(rewrittenM3u8);
+    res.status(200).send(lines.join('\n'));
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error interno en el proxy' });
+    res.status(500).json({ error: 'Error en el motor del proxy' });
   }
 }
